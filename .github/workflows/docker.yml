@@ -1,48 +1,62 @@
-name: Docker Build and Push
+# vim: ts=2 sw=2:
+
+name: Docker Build and Deploy
 
 on:
   push:
     # Publish `master` as Docker `dev` image.
     branches:
       - master
-    # Publish `v*` tags as releases and as `latest`.
+    # Publish `v*` tags as x.x.x images and as `latest`.
     tags:
       - v*
 
-env:
-  IMAGE_NAME: vidifierbot
-
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-
+  docker:
+    name: Build and push docker images
+    runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Write ref to file
+        run: git rev-list -n 1 $GITHUB_REF > ./git_commit
 
       - name: Build image
+        id: build_image
         run: |
-          echo ${{ github.sha }} > git_commit
+          IMAGE_NAME=${GITHUB_REPOSITORY#*/}
+          echo ::set-output name=image_name::$IMAGE_NAME
           docker build . --file Dockerfile -t $IMAGE_NAME
 
       - name: Log into Github Package Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Push image to registries
+      - name: Tag image
+        id: tag_image
         run: |
-          GITHUB_IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
+          IMAGE_NAME=${{ steps.build_image.outputs.image_name }}
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          echo IMAGE_ID=$IMAGE_ID
+          echo ::set-output name=image_id::$IMAGE_ID
 
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
+          # if version is master, set version to dev
           [[ "$VERSION" == "master" ]] && VERSION=dev
-
-          echo GITHUB_IMAGE_ID=$GITHUB_IMAGE_ID
           echo VERSION=$VERSION
+          echo ::set-output name=version::$VERSION
 
-          # tag for Github Registry
-          docker tag $IMAGE_NAME $GITHUB_IMAGE_ID:$VERSION
-          [[ "$VERSION" != "dev" ]] && docker tag $IMAGE_NAME $GITHUB_IMAGE_ID:latest
-          docker push $GITHUB_IMAGE_ID
+          # tag dev or x.x.x
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          # tag latest if not a dev release
+          [[ "$VERSION" != "dev" ]] && docker tag $IMAGE_NAME $IMAGE_ID:latest || true
+
+      - name: Push images to registry
+        run: |
+          [[ "${{ steps.tag_image.outputs.version }}" != "dev" ]] && docker push ${{ steps.tag_image.outputs.image_id }}:latest || true
+          docker push ${{ steps.tag_image.outputs.image_id }}:${{ steps.tag_image.outputs.version }}
