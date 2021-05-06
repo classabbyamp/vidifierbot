@@ -16,7 +16,7 @@ To use: [@vidifierbot](https://t.me/vidifierbot)
     version: '3'
     services:
       bot:
-        image: "docker.pkg.github.com/classabbyamp/vidifierbot/vidifierbot:latest"
+        image: "ghcr.io/classabbyamp/vidifierbot:latest"
         restart: on-failure
         volumes:
           - "./data:/app/data:rw"
