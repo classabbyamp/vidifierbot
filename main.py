@@ -30,37 +30,65 @@ ydl_opts = {
     "outtmpl": f"{keys.tempdir}/%(id)s.%(ext)s",
     "logger": logger,
     "max_filesize": 49_500_000,
-    "format": "mp4",
+    "format": "best[ext=mp4]",
+}
+
+
+ydl_opts_gif = {
+    "outtmpl": f"{keys.tempdir}/%(id)s_gif.%(ext)s",
+    "logger": logger,
+    "max_filesize": 49_500_000,
+    "format": "best[ext=mp4]",
+    "postprocessors": [
+        {
+            "key": "ExecAfterDownload",
+            "exec_cmd": "ffmpeg -i {} -c copy -an {}.mp4 && mv {}.mp4 {}",
+        },
+    ],
 }
 
 
 def help_command(update: telegram.Update, _: CallbackContext):
     if update.message:
         update.message.reply_text(("Send me URLs, and I'll try to convert them to videos!\n"
-                                   "You can also use the command /convert when sending URLs "
+                                   "You can also use the commands /vidify and /gifify when sending URLs "
                                    "or replying to a message with URLs.\n\n"
                                    "These sites are supported: "
                                    "http://ytdl-org.github.io/youtube-dl/supportedsites.html"),
                                   disable_web_page_preview=True)
 
 
-def convert_command(update: telegram.Update, _: CallbackContext):
+def vidify_command(update: telegram.Update, _: CallbackContext):
     if update.message:
         urls = list(update.message.parse_entities(types=["url"]).values())
         if urls:
-            get_and_send_videos(update.message, urls)
+            get_and_send_videos(update.message, urls, False)
         elif update.message.reply_to_message:
             urls = list(update.message.reply_to_message.parse_entities(types=["url"]).values())
             if urls:
-                get_and_send_videos(update.message, urls)
+                get_and_send_videos(update.message, urls, False)
+        else:
+            update.message.reply_text(("Unable to find any URLs to convert in your message or the replied-to message."
+                                       "If this is a private group, I probably can't see the replied-to message."))
+
+def gifify_command(update: telegram.Update, _: CallbackContext):
+    if update.message:
+        urls = list(update.message.parse_entities(types=["url"]).values())
+        if urls:
+            get_and_send_videos(update.message, urls, True)
+        elif update.message.reply_to_message:
+            urls = list(update.message.reply_to_message.parse_entities(types=["url"]).values())
+            if urls:
+                get_and_send_videos(update.message, urls, True)
         else:
             update.message.reply_text(("Unable to find any URLs to convert in your message or the replied-to message."
                                        "If this is a private group, I probably can't see the replied-to message."))
 
 
-def get_and_send_videos(msg: telegram.Message, urls: list[str]):
+def get_and_send_videos(msg: telegram.Message, urls: list[str], gif: bool = False):
     logger.info(str(urls))
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+    opts = ydl_opts if not gif else ydl_opts_gif
+    with youtube_dl.YoutubeDL(opts) as ydl:
         for url in urls:
             ydl.cache.remove()
             try:
@@ -72,21 +100,32 @@ def get_and_send_videos(msg: telegram.Message, urls: list[str]):
                 msg.reply_text(f"Unable to find video at {url}",
                                quote=True, disable_web_page_preview=True)
             else:
-                if fn:
-                    fp = Path(fn)
-                    # check vid is <50MB
-                    if fp.is_file() and fp.stat().st_size < 49_500_000:
-                        with fp.open("rb") as video:
-                            try:
-                                msg.reply_video(video=video, caption=url, quote=True)
-                            except telegram.error.TelegramError as e:
-                                logger.error(f"[{v_id}] {e}")
-                                msg.reply_text(f"Unable to upload video from {url}\nid: {v_id}",
-                                               quote=True, disable_web_page_preview=True)
+                send_videos(msg, url, fn, v_id, gif)
+
+
+def send_videos(msg: telegram.Message, url: str, fn: str, v_id: str, gif: bool = False):
+    if fn:
+        fp = Path(fn)
+        # check vid is <50MB
+        if fp.is_file() and fp.stat().st_size < 49_500_000:
+            with fp.open("rb") as video:
+                try:
+                    if gif:
+                        msg.reply_animation(animation=video, caption=url, quote=True)
                     else:
-                        logger.error(f"[{v_id}] file does not exist or too large for upload")
-                        msg.reply_text(f"Unable to find video at {url}, or video is too large to upload\nid: {v_id}",
-                                       quote=True, disable_web_page_preview=True)
+                        msg.reply_video(video=video, caption=url, quote=True)
+                except telegram.error.TelegramError as e:
+                    logger.error(f"[{v_id}] {e}")
+                    msg.reply_text(f"Unable to upload video from {url}\nid: {v_id}",
+                                   quote=True, disable_web_page_preview=True)
+        else:
+            logger.error(f"[{v_id}] file does not exist or too large for upload")
+            msg.reply_text(f"Unable to find video at {url}, or video is too large to upload\nid: {v_id}",
+                           quote=True, disable_web_page_preview=True)
+    else:
+        logger.error(f"[{v_id}] file does not exist")
+        msg.reply_text(f"Unable to find video at {url}\nid: {v_id}",
+                       quote=True, disable_web_page_preview=True)
 
 
 def cleanup_files(_: CallbackContext):
@@ -97,9 +136,7 @@ def cleanup_files(_: CallbackContext):
     files = tmp.glob("*.mp4")
     for f in files:
         age = abs(datetime.utcnow() - datetime.utcfromtimestamp(f.stat().st_ctime))
-        print("age", age)
         if f.is_file() and age > del_age:
-            print("rm", f.name)
             f.unlink()
             deleted += 1
     if deleted:
@@ -131,8 +168,9 @@ if __name__ == "__main__":
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", help_command, run_async=True))
     dp.add_handler(CommandHandler("help", help_command, run_async=True))
-    dp.add_handler(CommandHandler("convert", convert_command, run_async=True))
-    dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.entity("url"), convert_command, run_async=True))
+    dp.add_handler(CommandHandler("vidify", vidify_command, run_async=True))
+    dp.add_handler(CommandHandler("gifify", gifify_command, run_async=True))
+    dp.add_handler(MessageHandler(Filters.chat_type.private & Filters.entity("url"), vidify_command, run_async=True))
     dp.add_error_handler(error_handler)
 
     jq = updater.job_queue
