@@ -169,9 +169,9 @@ def parse_timestamp(msg: tg.Message) -> Optional[dict[str, str]]:
             dur = f"{g['h']:0>2}:{g['m']:0>2}:{g['s']:0>2}"
 
         if start and end:
-            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-to", end, "-i {} -c copy -an {}.trim.mp4"])
+            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-to", end, "-i {} -c copy -acodec copy {}.trim.mp4"])
         elif start and dur:
-            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-t", dur, "-i {} -c copy -an {}.trim.mp4"])
+            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-t", dur, "-i {} -c copy -acodec copy {}.trim.mp4"])
         else:
             return None
         return {
