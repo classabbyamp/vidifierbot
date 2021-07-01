@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 
+## [0.3.1] - 2021-07-01
+### Fixed
+- Issue where trimmed videos have no audio.
+
+
 ## [0.3.0] - 2021-06-13
 ### Added
 - Ability to trim videos and gifs.
