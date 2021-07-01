@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 
+## [0.3.1] - 2021-07-01
+### Fixed
+- Issue where trimmed videos have no audio.
+
+
 ## [0.3.0] - 2021-06-13
 ### Added
 - Ability to trim videos and gifs.
@@ -29,7 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Basic url -> video functionality
 
 
-[Unreleased]: https://github.com/classabbyamp/vidifierbot/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/classabbyamp/vidifierbot/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.3.1
 [0.3.0]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.3.0
 [0.2.1]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.2.1
 [0.2.0]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.2.0
