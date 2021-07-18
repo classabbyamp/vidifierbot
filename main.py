@@ -62,7 +62,10 @@ def help_command(update: tg.Update, _: CallbackContext):
                                    "`s=timestamp` or `start=timestamp` will set the start time, `e=timestamp` or "
                                    "`end=timestamp` will set the end time, and `d=timestamp`, `dur=timestamp`, or "
                                    "`duration=timestamp` will set the duration. The timestamp can be a number of "
-                                   "seconds, `MM:SS`, or `HH:MM:SS` (leading zeros are not required).\n\n"
+                                   "seconds, `MM:SS`, or `HH:MM:SS` (leading zeros are not required). "
+                                   "Timestamps can also be a number of seconds, milliseconds, or microseconds with "
+                                   "`s`, `ms`, or `us` after. Any seconds, milliseconds, or microseconds value also "
+                                   "accepts decimal places, e.g. `12.432s` or `12:03:37.123`.\n\n"
                                    "These sites are supported: "
                                    "http://ytdl-org.github.io/youtube-dl/supportedsites.html"),
                                   disable_web_page_preview=True, parse_mode=tg.ParseMode.MARKDOWN)
@@ -154,19 +157,28 @@ def parse_timestamp(msg: tg.Message) -> Optional[dict[str, str]]:
     start = None
     end = None
     dur = None
-    ts_re = r"(?:(?:(?P<h>[0-9]+):)?(?P<m>[0-9]{1,2}):)?(?P<s>[0-9]{1,2})"
+    ts_re = r"(?:(?P<sfrac>[0-9]+(?:\.[0-9]+)?(?:s|ms|us))|(?:(?:(?P<h>[0-9]+):)?(?P<m>[0-9]{1,2}):)?(?P<s>[0-9]{1,2}(?:\.[0-9]+)?))"
 
     if msg.text:
         text = msg.text.lower()
         if m := re.search(r"(?:s|start)=" + ts_re, text):
             g = m.groupdict(default="0")
-            start = f"{g['h']:0>2}:{g['m']:0>2}:{g['s']:0>2}"
+            if "sfrac" in g:
+                start = g["sfrac"]
+            else:
+                start = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
         if m := re.search(r"(?:e|end)=" + ts_re, text):
             g = m.groupdict(default="0")
-            end = f"{g['h']:0>2}:{g['m']:0>2}:{g['s']:0>2}"
+            if "sfrac" in g:
+                end = g["sfrac"]
+            else:
+                end = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
         if m := re.search(r"(?:d|dur|duration)=" + ts_re, text):
             g = m.groupdict(default="0")
-            dur = f"{g['h']:0>2}:{g['m']:0>2}:{g['s']:0>2}"
+            if "sfrac" in g:
+                dur = g["sfrac"]
+            else:
+                dur = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
 
         if start and end:
             cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-to", end, "-i {} -c copy -acodec copy {}.trim.mp4"])
