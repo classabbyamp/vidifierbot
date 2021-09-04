@@ -53,6 +53,11 @@ YDL_OPTS_GIF = {
 }
 
 
+class InternalError(Exception):
+    def __init__(self, msg: str):
+        self.msg = msg
+
+
 def help_command(update: tg.Update, _: CallbackContext):
     if update.message:
         update.message.reply_text(("Send me URLs, and I'll try to convert them to videos!\n"
@@ -72,22 +77,14 @@ def help_command(update: tg.Update, _: CallbackContext):
 
 
 def vidify_command(update: tg.Update, _: CallbackContext):
-    urls = []
-    if update.message:
-        if update.message.text:
-            urls += list(update.message.parse_entities(types=["url"]).values())
-
-        if update.message.reply_to_message:
-            urls += list(update.message.reply_to_message.parse_entities(types=["url"]).values())
-
-        if urls:
-            get_and_send_videos(update.message, urls, False)
-        else:
-            update.message.reply_text(("Unable to find any URLs to convert in your message or the replied-to message. "
-                                       "If this is a private group, I probably can't see the replied-to message."))
+    run_cmd(update, gif=False)
 
 
 def gifify_command(update: tg.Update, _: CallbackContext):
+    run_cmd(update, gif=True)
+
+
+def run_cmd(update: tg.Update, gif: bool):
     urls = []
     if update.message:
         if update.message.text:
@@ -97,17 +94,22 @@ def gifify_command(update: tg.Update, _: CallbackContext):
             urls += list(update.message.reply_to_message.parse_entities(types=["url"]).values())
 
         if urls:
-            get_and_send_videos(update.message, urls, True)
+            get_and_send_videos(update.message, urls, gif)
         else:
             update.message.reply_text(("Unable to find any URLs to convert in your message or the replied-to message. "
                                        "If this is a private group, I probably can't see the replied-to message."))
 
 
 def get_and_send_videos(msg: tg.Message, urls: list[str], gif: bool = False):
-    logger.info(str(urls))
+    logger.info(f"[{msg.message_id}] {', '.join(urls)}")
     opts: dict = YDL_OPTS if not gif else YDL_OPTS_GIF
-    if trim := parse_timestamp(msg):
-        opts["postprocessors"].append(trim)
+    try:
+        if trim := parse_timestamp(msg):
+            opts["postprocessors"].append(trim)
+    except InternalError as e:
+        logger.error(f"[{msg.message_id}] {e.msg}")
+        msg.reply_text(f"{e.msg}\nid: {msg.message_id}", quote=True, disable_web_page_preview=True)
+        return
     with youtube_dl.YoutubeDL(opts) as ydl:
         for url in urls:
             ydl.cache.remove()
@@ -118,8 +120,8 @@ def get_and_send_videos(msg: tg.Message, urls: list[str], gif: bool = False):
                 if trim:
                     fn += ".trim.mp4"
             except youtube_dl.utils.DownloadError as e:
-                logger.error(f"{e}")
-                msg.reply_text(f"Unable to find video at {url}",
+                logger.error(f"[{msg.message_id}] {e}")
+                msg.reply_text(f"Unable to find video at {url}\nid: {msg.message_id}",
                                quote=True, disable_web_page_preview=True)
             else:
                 send_videos(msg, url, fn, v_id, gif)
@@ -157,40 +159,43 @@ def parse_timestamp(msg: tg.Message) -> Optional[dict[str, str]]:
     start = None
     end = None
     dur = None
-    ts_re = r"(?:(?P<sfrac>[0-9]+(?:\.[0-9]+)?(?:s|ms|us))|(?:(?:(?P<h>[0-9]+):)?(?P<m>[0-9]{1,2}):)?(?P<s>[0-9]{1,2}(?:\.[0-9]+)?))"
 
     if msg.text:
         text = msg.text.lower()
-        if m := re.search(r"(?:s|start)=" + ts_re, text):
-            g = m.groupdict(default="0")
-            if "sfrac" in g:
-                start = g["sfrac"]
-            else:
-                start = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
-        if m := re.search(r"(?:e|end)=" + ts_re, text):
-            g = m.groupdict(default="0")
-            if "sfrac" in g:
-                end = g["sfrac"]
-            else:
-                end = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
-        if m := re.search(r"(?:d|dur|duration)=" + ts_re, text):
-            g = m.groupdict(default="0")
-            if "sfrac" in g:
-                dur = g["sfrac"]
-            else:
-                dur = f"{g['h']:0>2}:{g['m']:0>2}:{float(g['s']):02.3f}"
+        start = get_timestamp(["s", "start"], text)
+        end = get_timestamp(["e", "end"], text)
+        dur = get_timestamp(["d", "dur", "duration"], text)
 
-        if start and end:
-            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-to", end, "-i {} -c copy -acodec copy {}.trim.mp4"])
-        elif start and dur:
-            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, "-t", dur, "-i {} -c copy -acodec copy {}.trim.mp4"])
-        else:
-            return None
-        return {
-            "key": "ExecAfterDownload",
-            "exec_cmd": cmd,
-        }
+        if end is not None or dur is not None:
+            if start is None:
+                start = "0"
+            flag = "-to" if end is not None else "-t"
+            endur = end if end is not None else dur
+            cmd = " ".join(["ffmpeg -y -v 16 -ss", start, flag, endur, "-i {} -c copy -acodec copy {}.trim.mp4"])
+            return {
+                "key": "ExecAfterDownload",
+                "exec_cmd": cmd,
+            }
+        elif start is not None:
+            raise InternalError("Must provide end= or dur= with start=")
     return None
+
+
+def get_timestamp(pfxs: list[str], text: str) -> Optional[str]:
+    TS = (r"(?:(?P<sfrac>[0-9]+(?:\.[0-9]+)?(?:s|ms|us))|"
+          r"(?:(?:(?P<h>[0-9]+):)?(?P<m>[0-9]{1,2}):)?(?P<s>[0-9]{1,2}(?:\.[0-9]+)?))")
+    ts_val = None
+
+    if matches := re.search(fr"(?:{'|'.join(pfxs)})=" + TS, text):
+        g = matches.groupdict()
+        if "sfrac" in g and g["sfrac"] is not None:
+            ts_val = g["sfrac"]
+        elif "s" in g and g["s"] is not None:
+            h = g["h"] if g["h"] is not None else "0"
+            m = g["m"] if g["m"] is not None else "0"
+            s = g["s"] if g["s"] is not None else "0"
+            ts_val = f"{int(h):0>2}:{int(m):0>2}:{float(s):02.3f}"
+    return ts_val
 
 
 def cleanup_files(_: CallbackContext):
@@ -239,7 +244,7 @@ if __name__ == "__main__":
     dp.add_error_handler(error_handler)
 
     jq = updater.job_queue
-    jq.run_repeating(cleanup_files, interval=timedelta(minutes=2), first=10)
+    jq.run_repeating(cleanup_files, interval=timedelta(minutes=5), first=10)
 
     updater.start_polling()
     updater.idle()
