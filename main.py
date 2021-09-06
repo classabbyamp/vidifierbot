@@ -161,7 +161,7 @@ def parse_timestamp(msg: tg.Message) -> Optional[dict[str, str]]:
     dur = None
 
     if msg.text:
-        text = msg.text.lower()
+        text = filter_text_entities(msg).lower()
         start = get_timestamp(["s", "start"], text)
         end = get_timestamp(["e", "end"], text)
         dur = get_timestamp(["d", "dur", "duration"], text)
@@ -179,6 +179,17 @@ def parse_timestamp(msg: tg.Message) -> Optional[dict[str, str]]:
         elif start is not None:
             raise InternalError("Must provide end= or dur= with start=")
     return None
+
+
+def filter_text_entities(msg: tg.Message) -> str:
+    entities = msg.parse_entities(types=["url", "email", "mention", "hashtag", "bot_command", "text_link",
+                                         "text_mention", "phone_number", "cashtag"])
+    text = msg.text
+    if text is not None:
+        for en in entities.values():
+            text = text.replace(en, "")
+        return text
+    return ""
 
 
 def get_timestamp(pfxs: list[str], text: str) -> Optional[str]:
