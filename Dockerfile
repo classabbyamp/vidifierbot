@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 COPY . /app
 WORKDIR /app
@@ -20,4 +20,4 @@ RUN \
         /tmp/* \
         /var/lib/apt/lists/*
 
-CMD ["python3", "main.py"]
+CMD ["/bin/sh", "run.sh", "--pass-errors", "--no-botenv"]

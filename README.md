@@ -26,7 +26,7 @@ To use: [@vidifierbot](https://t.me/vidifierbot)
 
 3. Create a subdirectory named `data`.
 
-4. Copy the templates for `keys.py` to `data/`, and edit them.
+4. Copy the templates for `keys.py` and `help.md` to `data/`, and edit them.
 
 5. Run `docker-compose`:
 

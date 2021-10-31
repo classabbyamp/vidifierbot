@@ -14,6 +14,8 @@ import traceback
 import json
 import html
 import re
+import os
+from signal import SIGINT, SIGTERM, SIGABRT, SIGUSR1, SIGUSR2
 
 import youtube_dl  # type: ignore
 import telegram as tg
@@ -26,6 +28,11 @@ from data import keys
 logging.basicConfig(format='[%(asctime)s] [%(levelname)s] %(name)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+HELP_TEXT = ""
+with Path("./data/help.md").open() as hf:
+    HELP_TEXT = hf.read()
 
 
 YDL_OPTS = {
@@ -60,20 +67,31 @@ class InternalError(Exception):
 
 def help_command(update: tg.Update, _: CallbackContext):
     if update.message:
-        update.message.reply_text(("Send me URLs, and I'll try to convert them to videos!\n"
-                                   "You can also use the commands /vidify and /gifify when sending URLs "
-                                   "or replying to a message with URLs.\n\n"
-                                   "To trim the video or gif, set the start time and either the end time or duration. "
-                                   "`s=timestamp` or `start=timestamp` will set the start time, `e=timestamp` or "
-                                   "`end=timestamp` will set the end time, and `d=timestamp`, `dur=timestamp`, or "
-                                   "`duration=timestamp` will set the duration. The timestamp can be a number of "
-                                   "seconds, `MM:SS`, or `HH:MM:SS` (leading zeros are not required). "
-                                   "Timestamps can also be a number of seconds, milliseconds, or microseconds with "
-                                   "`s`, `ms`, or `us` after. Any seconds, milliseconds, or microseconds value also "
-                                   "accepts decimal places, e.g. `12.432s` or `12:03:37.123`.\n\n"
-                                   "These sites are supported: "
-                                   "http://ytdl-org.github.io/youtube-dl/supportedsites.html"),
-                                  disable_web_page_preview=True, parse_mode=tg.ParseMode.MARKDOWN)
+        update.message.reply_text(HELP_TEXT, disable_web_page_preview=True, parse_mode=tg.ParseMode.MARKDOWN_V2)
+
+
+def shutdown_command(update: tg.Update, context: CallbackContext):
+    if update.effective_user:
+        if update.effective_user.id == keys.owner_id:
+            logger.info(f"Shutdown command received from {update.effective_user.id}")
+            context.bot.send_message(chat_id=keys.owner_id, text="Shutting down", parse_mode=tg.ParseMode.MARKDOWN_V2)
+            os.kill(os.getpid(), SIGUSR1)
+            return
+        logger.info(f"Shutdown command received from {update.effective_user.id}, ignoring")
+        return
+    logger.info("Shutdown command received from unknown user, ignoring")
+
+
+def restart_command(update: tg.Update, context: CallbackContext):
+    if update.effective_user:
+        if update.effective_user.id == keys.owner_id:
+            logger.info(f"Restart command received from {update.effective_user.id}")
+            context.bot.send_message(chat_id=keys.owner_id, text="Restarting", parse_mode=tg.ParseMode.MARKDOWN_V2)
+            os.kill(os.getpid(), SIGUSR2)
+            return
+        logger.info(f"Restart command received from {update.effective_user.id}, ignoring")
+        return
+    logger.info("Restart command received from unknown user, ignoring")
 
 
 def vidify_command(update: tg.Update, _: CallbackContext):
@@ -243,11 +261,23 @@ def error_handler(update: object, context: CallbackContext):
     context.bot.send_message(chat_id=keys.owner_id, text=message, parse_mode=tg.ParseMode.HTML)
 
 
+def signal_handler(signum: int, _):
+    match signum:
+        case 10:
+            logger.info("Shutting down...")
+            raise SystemExit(0)
+        case 12:
+            logger.info("Restarting...")
+            raise SystemExit(42)
+
+
 if __name__ == "__main__":
-    updater = Updater(keys.tg_token, use_context=True)
+    updater = Updater(keys.tg_token, use_context=True, user_sig_handler=signal_handler)
 
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", help_command, run_async=True))
+    dp.add_handler(CommandHandler("shutdown", shutdown_command, run_async=False))
+    dp.add_handler(CommandHandler("restart", restart_command, run_async=False))
     dp.add_handler(CommandHandler("help", help_command, run_async=True))
     dp.add_handler(CommandHandler("vidify", vidify_command, run_async=True))
     dp.add_handler(CommandHandler("gifify", gifify_command, run_async=True))
@@ -258,4 +288,4 @@ if __name__ == "__main__":
     jq.run_repeating(cleanup_files, interval=timedelta(minutes=5), first=10)
 
     updater.start_polling()
-    updater.idle()
+    updater.idle(stop_signals=(SIGINT, SIGTERM, SIGABRT, SIGUSR1, SIGUSR2))
