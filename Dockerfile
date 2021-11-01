@@ -1,16 +1,19 @@
-FROM python:3.10-slim
+FROM ghcr.io/void-linux/void-linux:latest-mini-x86_64
+LABEL org.opencontainers.image.source https://github.com/classabbyamp/vidifierbot
 
 COPY . /app
 WORKDIR /app
 
-ENV PYTHON_BIN python3
+ARG REPOSITORY=https://repo-us.voidlinux.org/current
+ARG PKGS="ffmpeg"
+ARG UID 1000
+ARG GID 1000
 
 RUN \
-    apt-get update && \
-    echo "**** install runtime packages ****" && \
-    apt-get install -y --no-install-recommends \
-        ffmpeg \
-        && \
+    echo "**** update system ****" && \
+    xbps-install -SuyM -R ${REPOSITORY} && \
+    echo "**** install system packages ****" && \
+    xbps-install -yM -R ${REPOSITORY} ${PKGS} python3 python3-pip && \
     echo "**** install pip packages ****" && \
     pip3 install -U pip setuptools wheel && \
     pip3 install -r requirements.txt && \
@@ -18,6 +21,13 @@ RUN \
     rm -rf \
         /root/.cache \
         /tmp/* \
-        /var/lib/apt/lists/*
+        /var/cache/xbps/*
+
+ENV PYTHON_BIN python3
+ENV PYTHONUNBUFFERED 1
+ENV UID ${UID:-1000}
+ENV GID ${GID:-1000}
+
+USER $UID:$GID
 
 CMD ["/bin/sh", "run.sh", "--pass-errors", "--no-botenv"]
