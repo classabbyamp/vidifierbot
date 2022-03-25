@@ -17,7 +17,7 @@ import re
 import os
 from signal import SIGINT, SIGTERM, SIGABRT, SIGUSR1, SIGUSR2
 
-import youtube_dl  # type: ignore
+import yt_dlp  # type: ignore
 import telegram as tg
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
@@ -128,7 +128,7 @@ def get_and_send_videos(msg: tg.Message, urls: list[str], gif: bool = False):
         logger.error(f"[{msg.message_id}] {e.msg}")
         msg.reply_text(f"{e.msg}\nid: {msg.message_id}", quote=True, disable_web_page_preview=True)
         return
-    with youtube_dl.YoutubeDL(opts) as ydl:
+    with yt_dlp.YoutubeDL(opts) as ydl:
         for url in urls:
             ydl.cache.remove()
             try:

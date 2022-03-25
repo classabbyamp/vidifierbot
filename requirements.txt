@@ -1,2 +1,2 @@
 python-telegram-bot
-youtube_dl
+yt_dlp
