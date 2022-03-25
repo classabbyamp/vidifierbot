@@ -137,7 +137,7 @@ def get_and_send_videos(msg: tg.Message, urls: list[str], gif: bool = False):
                 fn = ydl.prepare_filename(info)
                 if trim:
                     fn += ".trim.mp4"
-            except youtube_dl.utils.DownloadError as e:
+            except yt_dlp.utils.DownloadError as e:
                 logger.error(f"[{msg.message_id}] {e}")
                 msg.reply_text(f"Unable to find video at {url}\nid: {msg.message_id}",
                                quote=True, disable_web_page_preview=True)
