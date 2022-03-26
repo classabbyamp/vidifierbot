@@ -20,8 +20,6 @@ To use: [@vidifierbot](https://t.me/vidifierbot)
         restart: on-failure
         volumes:
           - "./data:/app/data:rw"
-        environment:
-          - PYTHONUNBUFFERED=1
     ```
 
 3. Create a subdirectory named `data`.
