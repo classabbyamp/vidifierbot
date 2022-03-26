@@ -39,7 +39,7 @@ To use: [@vidifierbot](https://t.me/vidifierbot)
 
 ## Copyright
 
-Copyright (C) 2021 classabbyamp
+Copyright (C) 2021-2022 classabbyamp
 
 This program is released under the terms of the BSD-3-Clause license.
 See `LICENSE` for full license text.
