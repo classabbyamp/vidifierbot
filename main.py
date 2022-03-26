@@ -15,9 +15,10 @@ import json
 import html
 import re
 import os
+from copy import deepcopy
 from signal import SIGINT, SIGTERM, SIGABRT, SIGUSR1, SIGUSR2
 
-import yt_dlp  # type: ignore
+import yt_dlp
 import telegram as tg
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
@@ -45,19 +46,12 @@ YDL_OPTS = {
 }
 
 
-YDL_OPTS_GIF = {
-    "outtmpl": f"{keys.tempdir}/%(id)s_gif.%(ext)s",
-    "logger": logger,
-    "max_filesize": 49_500_000,
-    "format": "best[ext=mp4]",
-    "noplaylist": True,
-    "postprocessors": [
-        {
-            "key": "ExecAfterDownload",
-            "exec_cmd": "ffmpeg -y -v 16 -i {} -c copy -an {}.mp4 && mv {}.mp4 {}",
-        },
-    ],
-}
+YDL_OPTS_GIF = deepcopy(YDL_OPTS)
+YDL_OPTS_GIF["outtmpl"] = f"{keys.tempdir}/%(id)s_gif.%(ext)s"
+YDL_OPTS_GIF["postprocessors"].append({
+    "key": "Exec",
+    "exec_cmd": "ffmpeg -y -v 16 -i {} -c copy -an {}.mp4 && mv {}.mp4 {}",
+})
 
 
 class InternalError(Exception):
@@ -131,14 +125,15 @@ def get_and_send_videos(msg: tg.Message, urls: list[str], gif: bool = False):
     with yt_dlp.YoutubeDL(opts) as ydl:
         for url in urls:
             ydl.cache.remove()
+            fn = ""
             try:
                 info = ydl.extract_info(url, download=True)
                 v_id = info["id"]
                 fn = ydl.prepare_filename(info)
                 if trim:
                     fn += ".trim.mp4"
-            except yt_dlp.utils.DownloadError as e:
-                logger.error(f"[{msg.message_id}] {e}")
+            except Exception as e:
+                logger.error(f"[{msg.message_id}] {type(e)}: {e}")
                 msg.reply_text(f"Unable to find video at {url}\nid: {msg.message_id}",
                                quote=True, disable_web_page_preview=True)
             else:
