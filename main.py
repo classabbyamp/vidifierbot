@@ -1,5 +1,5 @@
 """
-stickdownbot
+vidifierbot
 
 Copyright (c) 2021-2022 classabbyamp
 Released under the BSD-3-Clause license
