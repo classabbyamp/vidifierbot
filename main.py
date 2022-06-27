@@ -40,7 +40,8 @@ YDL_OPTS = {
     "outtmpl": f"{keys.tempdir}/%(id)s.%(ext)s",
     "logger": logger,
     "max_filesize": 49_500_000,
-    "format": "best[ext=mp4]",
+    "format": "best[ext=mp4]/bestvideo+bestaudio",
+    "merge_output_format": "mp4",
     "noplaylist": True,
     "postprocessors": [],
 }
