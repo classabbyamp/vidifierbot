@@ -6,6 +6,24 @@ To use: [@vidifierbot](https://t.me/vidifierbot)
 
 ## Running
 
+### Without docker or for development
+
+Requires Python 3.10 or later.
+
+To set up a virtualenv, install dependencies in it, and copy template files, run:
+
+```
+$ make install
+```
+
+Then, to run the bot, use:
+
+```
+$ sh run.sh
+```
+
+See [quick-bot-no-pain's documentation](https://github.com/0x5c/quick-bot-no-pain/blob/master/docs/run.sh.md) for more details.
+
 ### Docker
 
 1. Create a new directory and `cd` into it.
