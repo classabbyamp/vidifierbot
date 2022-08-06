@@ -11,6 +11,7 @@ ARG GID 1000
 
 RUN \
     echo "**** update system ****" && \
+    xbps-install -Muy -R ${REPOSITORY} xbps && \
     xbps-install -Muy -R ${REPOSITORY} && \
     echo "**** install system packages ****" && \
     xbps-install -My -R ${REPOSITORY} ${PKGS} && \
