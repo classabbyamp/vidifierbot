@@ -25,6 +25,9 @@ while [ ! -z "$1" ]; do
         --no-botenv)
             _NO_BOTENV=1
             ;;
+        --upgrade)
+            _UPGRADE=1
+            ;;
         --)
             shift
             break
@@ -69,8 +72,10 @@ echo "$0: Starting bot..."
 # The loop
 while true; do
     if [ $_NO_BOTENV -eq 1 ]; then
+        if [ -n "$_UPGRADE" ]; then pip3 install --upgrade yt-dlp || true; fi
         "$PYTHON_BIN" main.py $@
     else
+        if [ -n "$_UPGRADE" ]; then ./$BOTENV/bin/pip3 install --upgrade yt-dlp || true; fi
         ./$BOTENV/bin/python3 main.py $@
     fi
     err=$?

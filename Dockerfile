@@ -4,7 +4,7 @@ LABEL org.opencontainers.image.source https://github.com/classabbyamp/vidifierbo
 COPY . /app
 WORKDIR /app
 
-ARG REPOSITORY=https://repo-us.voidlinux.org/current
+ARG REPOSITORY=https://repo-ci.voidlinux.org/current
 ARG PKGS="ffmpeg python3 python3-pip"
 ARG UID 1000
 ARG GID 1000
@@ -31,4 +31,4 @@ ENV PYTHONUNBUFFERED 1
 
 USER $UID:$GID
 
-CMD ["/bin/sh", "run.sh", "--pass-errors", "--no-botenv"]
+CMD ["/bin/sh", "run.sh", "--pass-errors", "--no-botenv", "--upgrade"]
