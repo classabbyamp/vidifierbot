@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 
+## [0.6.3] - 2023-02-18
+### Changed
+- Make it easier to update yt-dlp.
+
+
 ## [0.6.2] - 2022-08-05
 ### Fixed
 - Update yt-dlp.
@@ -64,7 +69,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Basic url -> video functionality
 
 
-[Unreleased]: https://github.com/classabbyamp/vidifierbot/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/classabbyamp/vidifierbot/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.6.3
 [0.6.2]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.6.2
 [0.6.1]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.6.1
 [0.6.0]: https://github.com/classabbyamp/vidifierbot/releases/tag/v0.6.0
