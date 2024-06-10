@@ -2,8 +2,6 @@
 
 A telegram bot for getting videos from websites.
 
-To use: [@vidifierbot](https://t.me/vidifierbot)
-
 ## Running
 
 ### Without docker or for development
